@@ -9,7 +9,7 @@ struct db_ctx {
 };
 
 struct db_ctx * database_init(const char * filename, char ** err_message);
-int database_create_schema(sqlite3 * db);
+// int database_create_schema(sqlite3 * db, char ** error_message);
 
 #endif // DATABASE_H
 

@@ -5,6 +5,23 @@
 
 #include "database.h"
 
+static int database_create_schema(sqlite3 * db, char ** error_message);
+
+/*
+static char * my_strdup(char * str) {
+	char * dup;
+	size_t len;
+	len = strlen(str);
+	len ++;
+	dup = malloc(len);
+	if (dup == NULL) {
+		return NULL;
+	}
+	memcpy(dup, str, len);
+	return dup;
+}
+*/
+
 static int database_init_callback(struct db_ctx * db_ctx, int col_count, 
 		char ** col_values, char ** col_names) {
 	int i;
@@ -33,7 +50,7 @@ struct db_ctx * database_init(const char * filename, char ** err_message) {
 
 	rc = sqlite3_open(filename, &db);
 	if (rc) {
-		fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+		*err_message = (char *)sqlite3_errmsg(db);
 		sqlite3_close(db);
 		return NULL;
 	}
@@ -47,10 +64,14 @@ struct db_ctx * database_init(const char * filename, char ** err_message) {
 		goto error;
 	}
 	if (rc != SQLITE_OK) {
-		if (database_create_schema(db)) {
-			if (err_message != NULL) {
-				*err_message = "Could not create schema in new database.";
-			}
+		char * schema_msg = NULL;
+		if (database_create_schema(db, &schema_msg)) {
+			sqlite3_free(schema_msg);
+			//char * msg;
+			//msg = my_strdup(schema_msg);
+			//*err_message = msg;
+			//sqlite3_free(schema_msg);
+			*err_message = "Schema creation problem";
 			goto error;
 		}
 		db_ctx->version = 1;
@@ -69,26 +90,26 @@ error:
 	return db_ctx;
 }
 
-int database_create_schema(sqlite3 * db) {
+static int database_create_schema(sqlite3 * db, char ** error_message) {
 	int rc;
 	char * errmsg = NULL;
 	rc = sqlite3_exec(db, "CREATE TABLE filedb_version_meta (version INTEGER, banner TEXT) ;", NULL, NULL, &errmsg);
 	if (rc != SQLITE_OK) {
-		sqlite3_free(errmsg);
 		goto error;
 	}
 	rc = sqlite3_exec(db, "INSERT INTO filedb_version_meta (version, banner) VALUES (1, 'PRE-RELEASE-VERSION') ;", NULL, NULL, &errmsg);
 	if (rc != SQLITE_OK) {
-		sqlite3_free(errmsg);
 		goto error;
 	}
-	rc = sqlite3_exec(db, "CREATE TABLE (filename TEXT, modifiedtime INTEGER, hash BLOB) ;", NULL, NULL, &errmsg);
+	rc = sqlite3_exec(db, "CREATE TABLE filedb_file (filename TEXT, modifiedtime INTEGER, hash TEXT) ;", NULL, NULL, &errmsg);
 	if (rc != SQLITE_OK) {
-		sqlite3_free(errmsg);
 		goto error;
 	}
 	return 0;
 error:
+	if (errmsg != NULL) {
+		*error_message = errmsg;
+	}
 	return -1;
 }
 

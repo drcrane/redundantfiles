@@ -15,9 +15,9 @@ CSOURCES=$(wildcard $(SRCDIR)*.c)
 COBJECTS=$(patsubst $(SRCDIR)%.c,$(OBJDIR)%.o,$(CSOURCES))
 CPPSOURCES=$(wildcard $(SRCDIR)*.cpp)
 CPPOBJECTS=$(patsubst $(SRCDIR)%.cpp,$(OBJDIR)%.o,$(CPPSOURCES))
-OBJECTS=$(COBJECTS) $(CPPOBJECTS) lib/sqlite3.o
+OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 BINARIES=bin/
-OPTLIBS=-lstdc++ -lpthread -ldl
+OPTLIBS=-lstdc++ -lpthread -ldl -lsqlite3
 
 APP_DIR=appsrc/
 APP_SRC=$(wildcard $(APP_DIR)*.c)
