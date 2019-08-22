@@ -5,6 +5,8 @@
 
 #include "database.h"
 
+#include "dbg.h"
+
 static int database_create_schema(sqlite3 * db);
 
 /*
@@ -43,7 +45,7 @@ static int database_init_callback(struct db_ctx * db_ctx, int col_count,
 }
 
 struct db_ctx * database_init(const char * filename, char ** err_message) {
-	sqlite3 *db;
+	sqlite3 * db = NULL;
 	struct db_ctx * db_ctx = NULL;
 	char * errmsg = NULL;
 	int rc;
@@ -55,6 +57,7 @@ struct db_ctx * database_init(const char * filename, char ** err_message) {
 		return NULL;
 	}
 	db_ctx = malloc(sizeof(struct db_ctx));
+	memset(db_ctx, 0, sizeof(struct db_ctx));
 	db_ctx->db = db;
 	db_ctx->version = 0;
 	rc = sqlite3_exec(db, "SELECT * FROM filedb_version_meta ;", 
@@ -75,13 +78,27 @@ struct db_ctx * database_init(const char * filename, char ** err_message) {
 			goto error;
 		}
 	}
+	rc = sqlite3_prepare_v2(db_ctx->db, "INSERT INTO filedb_file (filename, modifiedtime, hash) VALUES (?, ?, ?) ;", -1, &db_ctx->insert_file_stmt, NULL);
+	if (rc != SQLITE_OK) {
+		*err_message = "database query preparation error";
+		goto error;
+	}
 	return db_ctx;
 error:
 	if (db_ctx != NULL) {
-		free(db_ctx);
-		db_ctx = NULL;
+		database_close(db_ctx);
 	}
-	return db_ctx;
+	return NULL;
+}
+
+void database_close(struct db_ctx * ctx) {
+	if (ctx->db) {
+		if (ctx->insert_file_stmt) {
+			sqlite3_finalize(ctx->insert_file_stmt);
+		}
+		sqlite3_close(ctx->db);
+	}
+	free(ctx);
 }
 
 static int database_create_schema(sqlite3 * db) {
@@ -95,7 +112,7 @@ static int database_create_schema(sqlite3 * db) {
 	if (rc != SQLITE_OK) {
 		goto error;
 	}
-	rc = sqlite3_exec(db, "CREATE TABLE filedb_file (filename TEXT, modifiedtime INTEGER, hash BLOB) ;", NULL, NULL, &errmsg);
+	rc = sqlite3_exec(db, "CREATE TABLE filedb_file (filename TEXT, modifiedtime INTEGER, hash BLOB, PRIMARY KEY (filename) ) ;", NULL, NULL, &errmsg);
 	if (rc != SQLITE_OK) {
 		goto error;
 	}
@@ -105,5 +122,32 @@ error:
 		sqlite3_free(errmsg);
 	}
 	return -1;
+}
+
+int database_addfile(struct db_ctx * ctx, const char * filename, uint64_t modified_time, void * hash) {
+	int rc;
+	int res;
+	res = -1;
+	rc = sqlite3_bind_text(ctx->insert_file_stmt, 1, filename, -1, SQLITE_STATIC);
+	if (rc != SQLITE_OK) { goto error; }
+	rc = sqlite3_bind_int64(ctx->insert_file_stmt, 2, modified_time);
+	if (rc != SQLITE_OK) { goto error; }
+	rc = sqlite3_bind_blob(ctx->insert_file_stmt, 3, hash, 64, SQLITE_STATIC);
+	if (rc != SQLITE_OK) { goto error; }
+	rc = sqlite3_step(ctx->insert_file_stmt);
+	if (rc == SQLITE_CONSTRAINT) {
+		// This file must already exist
+		res = 1;
+	} else
+	if (rc == SQLITE_DONE) {
+		// The record was appended
+		res = 0;
+	} else
+	{ goto error; }
+error:
+	// this may return an error code but we have already dealt with it
+	// through the step call above so at this point we dont care.
+	sqlite3_reset(ctx->insert_file_stmt);
+	return res;
 }
 
