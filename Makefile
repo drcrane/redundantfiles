@@ -21,11 +21,11 @@ OPTLIBS=-lstdc++ -lpthread -ldl -lsqlite3
 
 APP_DIR=appsrc/
 APP_SRC=$(wildcard $(APP_DIR)*.c)
-APPS=$(patsubst %.c,%.exe,$(APP_SRC))
+APPS=$(patsubst %.c,%,$(APP_SRC))
 
 TEST_DIR=testsrc/
 TEST_SRC=$(wildcard $(TEST_DIR)*_tests.c)
-TESTS=$(patsubst %.c,%.exe,$(TEST_SRC))
+TESTS=$(patsubst %.c,%,$(TEST_SRC))
 
 # dev: CFLAGS=-g -Wall -Isrc -Wall -Wextra $(OPTFLAGS)
 dev: $(TARGET)
