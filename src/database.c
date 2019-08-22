@@ -5,7 +5,7 @@
 
 #include "database.h"
 
-static int database_create_schema(sqlite3 * db, char ** error_message);
+static int database_create_schema(sqlite3 * db);
 
 /*
 static char * my_strdup(char * str) {
@@ -64,13 +64,7 @@ struct db_ctx * database_init(const char * filename, char ** err_message) {
 		goto error;
 	}
 	if (rc != SQLITE_OK) {
-		char * schema_msg = NULL;
-		if (database_create_schema(db, &schema_msg)) {
-			sqlite3_free(schema_msg);
-			//char * msg;
-			//msg = my_strdup(schema_msg);
-			//*err_message = msg;
-			//sqlite3_free(schema_msg);
+		if (database_create_schema(db)) {
 			*err_message = "Schema creation problem";
 			goto error;
 		}
@@ -90,7 +84,7 @@ error:
 	return db_ctx;
 }
 
-static int database_create_schema(sqlite3 * db, char ** error_message) {
+static int database_create_schema(sqlite3 * db) {
 	int rc;
 	char * errmsg = NULL;
 	rc = sqlite3_exec(db, "CREATE TABLE filedb_version_meta (version INTEGER, banner TEXT) ;", NULL, NULL, &errmsg);
@@ -101,14 +95,14 @@ static int database_create_schema(sqlite3 * db, char ** error_message) {
 	if (rc != SQLITE_OK) {
 		goto error;
 	}
-	rc = sqlite3_exec(db, "CREATE TABLE filedb_file (filename TEXT, modifiedtime INTEGER, hash TEXT) ;", NULL, NULL, &errmsg);
+	rc = sqlite3_exec(db, "CREATE TABLE filedb_file (filename TEXT, modifiedtime INTEGER, hash BLOB) ;", NULL, NULL, &errmsg);
 	if (rc != SQLITE_OK) {
 		goto error;
 	}
 	return 0;
 error:
 	if (errmsg != NULL) {
-		*error_message = errmsg;
+		sqlite3_free(errmsg);
 	}
 	return -1;
 }
