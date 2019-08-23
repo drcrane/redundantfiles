@@ -31,12 +31,22 @@ char * creation_test() {
 
 char * attempt_to_add_duplicate_test() {
 	char hash[64];
+	char loaded_hash[64];
 	int rc;
+	int64_t modified_time;
 	memset(hash, 0, 64);
-	rc = database_addfile(db_ctx, "/full/path/to/file", 0, hash);
+	hash[4] = 9;
+	rc = database_fileadd(db_ctx, "/full/path/to/file", 8, hash);
 	mu_assert(rc == 0, "should be success");
-	rc = database_addfile(db_ctx, "/full/path/to/file", 1, hash);
+	rc = database_fileadd(db_ctx, "/full/path/to/file", 2, hash);
 	mu_assert(rc == 1, "should fail");
+	modified_time = 0;
+	rc = database_filefindbyname(db_ctx, "/full/path/to/file", &modified_time, loaded_hash);
+	mu_assert(rc == 0, "File should have been found");
+	mu_assert(modified_time == 8, "Modified time should be 8");
+	mu_assert(memcmp(hash, loaded_hash, 64) == 0, "Hashes should match");
+	rc = database_filefindbyname(db_ctx, "/file/not/in/the/database", &modified_time, loaded_hash);
+	mu_assert(rc == 1, "File should not exist in database");
 	return NULL;
 }
 

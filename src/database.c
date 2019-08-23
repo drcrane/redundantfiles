@@ -79,11 +79,12 @@ struct db_ctx * database_init(const char * filename, char ** err_message) {
 		}
 	}
 	rc = sqlite3_prepare_v2(db_ctx->db, "INSERT INTO filedb_file (filename, modifiedtime, hash) VALUES (?, ?, ?) ;", -1, &db_ctx->insert_file_stmt, NULL);
-	if (rc != SQLITE_OK) {
-		*err_message = "database query preparation error";
-		goto error;
-	}
+	if (rc != SQLITE_OK) { goto query_prep_error; }
+	rc = sqlite3_prepare_v2(db_ctx->db, "SELECT modifiedtime, hash FROM filedb_file WHERE filename = ? ;", -1, &db_ctx->load_file_by_name_stmt, NULL);
+	if (rc != SQLITE_OK) { goto query_prep_error; }
 	return db_ctx;
+query_prep_error:
+	*err_message = "database query preparation error";
 error:
 	if (db_ctx != NULL) {
 		database_close(db_ctx);
@@ -124,7 +125,7 @@ error:
 	return -1;
 }
 
-int database_addfile(struct db_ctx * ctx, const char * filename, uint64_t modified_time, void * hash) {
+int database_fileadd(struct db_ctx * ctx, const char * filename, int64_t modified_time, void * hash) {
 	int rc;
 	int res;
 	res = -1;
@@ -148,6 +149,33 @@ error:
 	// this may return an error code but we have already dealt with it
 	// through the step call above so at this point we dont care.
 	sqlite3_reset(ctx->insert_file_stmt);
+	return res;
+}
+
+int database_filefindbyname(struct db_ctx * ctx, const char * filename, int64_t * modified_time_ptr, void * hash_ptr) {
+	int rc;
+	int res = -1;
+	rc = sqlite3_bind_text(ctx->load_file_by_name_stmt, 1, filename, -1, SQLITE_STATIC);
+	if (rc != SQLITE_OK) { goto error; }
+	rc = sqlite3_step(ctx->load_file_by_name_stmt);
+	//debug("rc: %d", rc);
+	if (rc == SQLITE_ROW) {
+		int len;
+		void * ptr;
+		*modified_time_ptr = sqlite3_column_int64(ctx->load_file_by_name_stmt, 0);
+		ptr = (void *)sqlite3_column_blob(ctx->load_file_by_name_stmt, 1);
+		len = sqlite3_column_bytes(ctx->load_file_by_name_stmt, 1);
+		if (len != 64) {
+			goto error;
+		}
+		memcpy(hash_ptr, ptr, len);
+		res = 0;
+	} else
+	if (rc == SQLITE_DONE) {
+		res = 1;
+	}
+error:
+	sqlite3_reset(ctx->load_file_by_name_stmt);
 	return res;
 }
 

@@ -15,7 +15,8 @@ struct db_ctx {
 
 struct db_ctx * database_init(const char * filename, char ** err_message);
 void database_close(struct db_ctx * ctx);
-int database_addfile(struct db_ctx * ctx, const char * filename, uint64_t modified_time, void * hash);
+int database_fileadd(struct db_ctx * ctx, const char * filename, int64_t modified_time, void * hash);
+int database_filefindbyname(struct db_ctx * ctx, const char * filename, int64_t * modified_time_ptr, void * hash_ptr);
 
 #endif // DATABASE_H
 
