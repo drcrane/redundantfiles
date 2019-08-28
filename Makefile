@@ -1,4 +1,4 @@
-CFLAGS=-g -std=c11 -O2 -Wall -Isrc -Iinclude $(OPTFLAGS)
+CFLAGS=-g -std=c11 -O2 -Wall -DLINUX -Isrc -Iinclude $(OPTFLAGS)
 CXXFLAGS=-g -O2 -std=c++11 -Wall -Isrc -Iinclude $(OPTFLAGS)
 LDLIBS=$(OPTLIBS)
 
